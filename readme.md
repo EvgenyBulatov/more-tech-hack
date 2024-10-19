@@ -4,6 +4,8 @@
 
 Реализация инкрементной выгрузки данных типа SCD2 при помощи Deltsa Lake
 
+## Преимущества решения
+
 ## Структура проекта
 
 ```
@@ -44,3 +46,4 @@ SPARK_SSH_OPTS='-i /home/your_login/your_login' /opt/spark/sbin/start-all.sh
 ```plaintext
 /opt/spark/bin/spark-submit --packages io.delta:delta-spark_2.13:3.2.0 --jars spark-hadoop-cloud_2.13-3.5.3.jar spark_delta_join.py
 ```
+## Сложности и как их фиксить
