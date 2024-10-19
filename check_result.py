@@ -41,23 +41,27 @@ log = spark._jvm.org.apache.log4j.LogManager.getLogger(">>> App")
 
 incr_bucket = f"s3a://source-data"
 your_bucket = f"s3a://{your_bucket_name}"
-incr_table = f"{incr_bucket}/incr{level}"
-init_table = f"{incr_bucket}/init{level}"
-your_table = f"{your_bucket}/init{level}"
+incr_table_path = f"{incr_bucket}/incr{level}"
+init_table_path = f"{incr_bucket}/init{level}"
+your_table_path = f"{your_bucket}/init{level}"
 
-oldLines = spark.read.parquet(init_table).count()
-newLines = spark.read.parquet(incr_table).where(col("id") > oldLines).count()
-closedLines = spark.read.parquet(incr_table).where(col("eff_to_dt") != "5999-12-31").count()
+init_table = spark.read.format("delta").load(init_table_path)
+incr_table = spark.read.format("delta").load(incr_table_path)
+your_table = spark.read.format("delta").load(your_table_path)
 
-newLinesT = spark.read.parquet(your_table).where(col("eff_to_month") == "5999-12-31").count()
-closedLinesT = spark.read.parquet(your_table).where(col("eff_to_month") != "5999-12-31").count()
+init_line_count = init_table.count()
+incr_new_lines_count = incr_table.where(col("id") > init_line_count).count()
+closed_line_incr = incr_table.where(col("eff_to_dt") != "5999-12-31").count()
 
-if (oldLines + newLines) == newLinesT:
-    print(f"Open records match: {newLinesT}")
+result_opened_lines = your_table.where(col("eff_to_month") == "5999-12-31").count()
+closed_line_result = your_table.where(col("eff_to_month") != "5999-12-31").count()
+
+if (init_line_count + incr_new_lines_count) == result_opened_lines:
+    print(f"Open records match: {result_opened_lines}")
 else:
-    print(f"ERROR: Expected open records: {oldLines + newLines}, actual: {newLinesT}")
+    print(f"ERROR: Expected open records: {init_line_count + incr_new_lines_count}, actual: {result_opened_lines}")
 
-if closedLines == closedLinesT:
-    print(f"Closed records match: {closedLinesT}")
+if closed_line_incr == closed_line_result:
+    print(f"Closed records match: {closed_line_result}")
 else:
-    print(f"ERROR: Expected closed records: {closedLines}, actual: {closedLinesT}")
+    print(f"ERROR: Expected closed records: {closed_line_incr}, actual: {closed_line_result}")
