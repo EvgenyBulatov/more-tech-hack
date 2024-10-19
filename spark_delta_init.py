@@ -27,11 +27,11 @@ configs = {
     "spark.hadoop.fs.s3a.endpoint": "api.s3.az1.t1.cloud",
     "spark.hadoop.fs.s3a.bucket.source-data.access.key": "P2EGND58XBW5ASXMYLLK",
     "spark.hadoop.fs.s3a.bucket.source-data.secret.key": "IDkOoR8KKmCuXc9eLAnBFYDLLuJ3NcCAkGFghCJI",
-    "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
-    "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.access.key": your_access_key,
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.secret.key": your_secret_key,
-    "spark.sql.orc.compression.codec": "snappy"
+    "spark.sql.parquet.compression.codec": "snappy", # используем сжатие snappy
+    "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension", # подтягиваем Delta-зависимости
+    "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog", # подтягиваем Delta-зависимости
 }
 conf = SparkConf()
 conf.setAll(configs.items())
@@ -47,10 +47,14 @@ tgt_bucket = f"s3a://{your_bucket_name}"
 src_init_table = f"{src_bucket}/{table_to_copy}"
 tgt_init_table = f"{tgt_bucket}/{table_to_copy}"
 
+"""
+ с S3 считываем паркет, а вот в таблицу данные перекладываем уже в delta формате
+ ** format('delta')
+"""
 spark.read.parquet(src_init_table).write \
     .format('delta') \
     .mode("overwrite") \
     .partitionBy("eff_to_month", "eff_from_month") \
     .save(tgt_init_table)
 
-log.info("Finished")
+log.info("Finished table initialization")
