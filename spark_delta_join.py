@@ -28,11 +28,12 @@ configs = {
     "spark.hadoop.fs.s3a.endpoint": "api.s3.az1.t1.cloud",
     "spark.hadoop.fs.s3a.bucket.source-data.access.key": "P2EGND58XBW5ASXMYLLK",
     "spark.hadoop.fs.s3a.bucket.source-data.secret.key": "IDkOoR8KKmCuXc9eLAnBFYDLLuJ3NcCAkGFghCJI",
-    "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
-    "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.access.key": your_access_key,
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.secret.key": your_secret_key,
-    "spark.sql.orc.compression.codec": "snappy"
+    "spark.sql.orc.compression.codec": "snappy",
+     "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension",
+    "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+    "spark.databricks.delta.vacuum.parallelDelete.enabled": "true",
 }
 conf = SparkConf()
 conf.setAll(configs.items())
@@ -55,7 +56,7 @@ increment_table = spark.read.parquet(incr_table)
 target_delta_table = DeltaTable.forPath(spark, init_table)
 
 incr_cnt = increment_table.count()
-tgt_cnt = target_delta_table.count()
+tgt_cnt = target_delta_table.toDF().count()
 
 # добавляем колонки партиционирования в приходящий инкремент
 target_columns = target_delta_table.toDF().columns
@@ -70,24 +71,26 @@ increment = (increment_table
     .merge(
         increment.alias('incr'),
         "tgt.eff_to_month = '5999-12-31' \
-        AND incr.eff_to_month = '5999-12-31' \
+        AND incr.eff_to_month != '5999-12-31' \
         AND incr.eff_from_month = tgt.eff_from_month \
         AND tgt.eff_from_dt = incr.eff_from_dt \
         AND tgt.id = incr.id"
     )
     .whenMatchedUpdate(
         set= {
-            "tgt.eff_to_dt": "incr.eff_to_dt",
-            "tgt.eff_to_month": "incr.eff_to_month",
+            "eff_to_dt": "incr.eff_to_dt",
+            "eff_to_month": "incr.eff_to_month",
         }
     )
     .whenNotMatchedInsertAll()
     .execute()
 )
 
-new_tgt_count = target_delta_table.count()
+target_delta_table.vacuum(0)
 
-target_delta_table.toDF().write.format("delta").mode("overwrite").save(init_table)
+new_tgt_count = target_delta_table.toDF().count()
+
+target_delta_table.toDF().write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(init_table)
 
 end = time.perf_counter() - start
 
