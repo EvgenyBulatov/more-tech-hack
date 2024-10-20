@@ -48,8 +48,8 @@ incr_table_path = f"{incr_bucket}/incr{level}"
 init_table_path = f"{incr_bucket}/init{level}"
 your_table_path = f"{your_bucket}/init{level}"
 
-init_table = spark.read.format("delta").load(init_table_path)
-incr_table = spark.read.format("delta").load(incr_table_path)
+init_table = spark.read.parquet(init_table_path)
+incr_table = spark.read.parquet(incr_table_path)
 your_table = spark.read.format("delta").load(your_table_path)
 
 init_line_count = init_table.count()
