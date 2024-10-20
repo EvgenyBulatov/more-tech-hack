@@ -30,7 +30,7 @@ configs = {
     "spark.hadoop.fs.s3a.bucket.source-data.secret.key": "IDkOoR8KKmCuXc9eLAnBFYDLLuJ3NcCAkGFghCJI",
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.access.key": your_access_key,
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.secret.key": your_secret_key,
-    "spark.sql.orc.compression.codec": "snappy",
+    "spark.sql.parquet.compression.codec": "snappy",
     "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension", # подтягиваем delta-зависимости
     "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog", # подтягиваем delta-зависимости
     "spark.databricks.delta.retentionDurationCheck.enabled": "false", # параметр для корректной работы с .vacuum()

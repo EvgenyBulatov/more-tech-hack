@@ -29,7 +29,7 @@ configs = {
     "spark.hadoop.fs.s3a.bucket.source-data.secret.key": "IDkOoR8KKmCuXc9eLAnBFYDLLuJ3NcCAkGFghCJI",
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.access.key": your_access_key,
     f"spark.hadoop.fs.s3a.bucket.{your_bucket_name}.secret.key": your_secret_key,
-    "spark.sql.parquet.compression.codec": "snappy"
+    "spark.sql.orc.compression.codec": "snappy"
 }
 conf = SparkConf()
 conf.setAll(configs.items())
