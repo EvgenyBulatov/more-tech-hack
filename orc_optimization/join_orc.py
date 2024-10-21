@@ -4,10 +4,10 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 import time
 
-level = "*"  # Какую таблицу тестируем, маленькую, среднюю или большую
-your_bucket_name = "result"  # Имя вашего бакета
-your_access_key = "***"  # Ключ от вашего бакета
-your_secret_key = "***"  # Ключ от вашего бакета
+level = "*" #Какую таблицу тестируем, маленькую, среднюю или большую
+your_bucket_name = "result" #Имя вашего бакета
+your_access_key = "***" #Ключ от вашего бакета
+your_secret_key = "***" #Ключ от вашего бакета
 
 configs = {
     "spark.sql.files.maxPartitionBytes": "1073741824",  # 1GB
@@ -61,9 +61,16 @@ increment = (increment_table
              .repartition("eff_to_month", "eff_from_month")
              .selectExpr(target_columns)
              )
+increment.cache()
+
+# добавляем весь инкремент в temp_table
+increment.write.mode("overwrite").partitionBy("eff_to_month", "eff_from_month").orc(temp_table)
+
 # по сути, новые данные с закрытой датой
 increment_closed = increment \
     .filter(col("eff_to_month") != lit("5999-12-31"))
+
+increment.unpersist()
 
 # берем список партиций из инкремента, так как именно по ним могут прийти апдейты
 incr_partitions = increment_closed.select(col("eff_from_month") \
@@ -75,7 +82,7 @@ partitions = [str(row[0]) for row in incr_partitions]
 for from_dt in partitions:
     log.info(f"<-start working with partition {from_dt}->")
 
-    # берем только нужную партицию инкремента
+    # берем только нужную партицию инита
     target_partition = target_table \
         .filter(col("eff_to_month") == lit("5999-12-31")) \
         .filter(col("eff_from_month") == from_dt)
@@ -87,19 +94,16 @@ for from_dt in partitions:
     # открытые записи без изменений
     old_data = target_partition.join(closed_increment_partitioning, on=["id", "eff_from_dt"], how='left_anti')
 
-    old_data.write.mode("overwrite").partitionBy("eff_to_month", "eff_from_month").orc(temp_table)
-
-path = spark._jvm.org.apache.hadoop.fs.Path(f"{init_table}/eff_to_month=5999-12-31/")
-fs.delete(path, True)
-
-# перезаписываем оставшиеся записиси с открытой датой за все партиции
-spark.read.orc(temp_table).write.mode("overwrite").partitionBy("eff_to_month", "eff_from_month").orc(init_table)
-
-# аппендим оставшиеся данные инкремента в init
-increment.write.mode("append").partitionBy("eff_to_month", "eff_from_month").orc(init_table)
+    old_data.write.mode("append").partitionBy("eff_to_month", "eff_from_month").orc(temp_table)
 
 hadoop_conf = sc._jsc.hadoopConfiguration()
 fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jvm.java.net.URI(your_bucket), hadoop_conf)
+path = spark._jvm.org.apache.hadoop.fs.Path(f"{init_table}/eff_to_month=5999-12-31/")
+fs.delete(path, True)
+
+# аппендим оставшиеся данные инкремента в init
+spark.read.orc(temp_table).write.mode("append").partitionBy("eff_to_month", "eff_from_month").orc(init_table)
+
 path = spark._jvm.org.apache.hadoop.fs.Path(temp_table)
 fs.delete(path, True)
 
